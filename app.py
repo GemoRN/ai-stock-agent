@@ -1,5 +1,6 @@
 import os
-import httpx
+import requests
+import yfinance as yf
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,92 +15,80 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ALPHA VANTAGE FREE KEY (Yeh professional public access key hai)
-# Purani line ko hata kar yeh likhein (Yeh automatic Render ke secret box se key uthayega)
-ALPHA_VANTAGE_KEY = os.environ.get("ALPHA_VANTAGE_KEY", "demo")
+# 1. BROWSER IMMUNITY HEADERS (Yahoo code bypass architecture)
+custom_session = requests.Session()
+custom_session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5'
+})
 
 @app.get("/api/evaluate")
-async def evaluate_stock(ticker: str):
+def evaluate_stock(ticker: str):
     if not ticker:
-        raise HTTPException(status_code=400, detail="Ticker cannot be empty")
+        raise HTTPException(status_code=400, detail="Ticker input empty")
         
     symbol = ticker.upper().strip().replace(" ", "")
     
-    # Reliance Jio Financial handle logic
-    if symbol in ["JIO", "JPL", "JIOFINANCIAL"]:
+    # Jio Financial Services ticker format handle
+    if symbol in ["JIO", "JIOFINANCIAL", "JPL"]:
         symbol = "JIOFIN"
         
-    # Official API URL for Real-Time Quote Endpoint
-    api_url = f"https://alphavantage.co{symbol}.BOM&apikey={ALPHA_VANTAGE_KEY}"
-    
+    if not (symbol.endswith(".NS") or symbol.endswith(".BO")):
+        search_ticker = f"{symbol}.NS"
+    else:
+        search_ticker = symbol
+        
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(api_url)
-            
-        if response.status_code != 200:
-            raise HTTPException(status_code=500, detail="Official Market server unreachable.")
-            
-        data = response.json()
-        quote = data.get("Global Quote", {})
+        stock = yf.Ticker(search_ticker, session=custom_session)
+        info = stock.info
         
-        # Strict Error: Agar symbol galat hai ya data nahi mila
-        if not quote or "05. price" Packs not in quote:
-            # Backup endpoint trigger for Indian equities standard formatting
-            alt_url = f"https://alphavantage.co{symbol}.NSE&apikey={ALPHA_VANTAGE_KEY}"
-            async with httpx.AsyncClient(timeout=10.0) as alt_client:
-                alt_res = await alt_client.get(alt_url)
-                data = alt_res.json()
-                quote = data.get("Global Quote", {})
-                
-            if not quote or "05. price" not in quote:
-                raise HTTPException(status_code=404, detail=f"Symbol '{symbol}' Indian exchange par nahi mila.")
-
-        # Pulling genuine dynamic metrics direct from official structural packet
-        raw_price = float(quote.get("05. price", 0))
+        # Pull live price safely from daily history packet
+        hist = stock.history(period="1d")
+        if hist.empty:
+            raise HTTPException(status_code=404, detail=f"Symbol '{symbol}' not found on NSE.")
+            
+        raw_price = hist['Close'].iloc[-1]
         current_price = f"{raw_price:,.2f}"
-        
-        # Safe Standard Matrix Multipliers (Calculated dynamically)
-        # Note: Official free plan gives real-time prices. 
-        # Fundamental key ratios (PE/PB) are standard dynamic calculated targets.
-        pe = float(quote.get("10. change percent", "1.5").replace("%", "")) * 12.4
-        pe = abs(pe) if pe != 0 else 18.50
-        peg = 0.65 if pe < 20 else 1.25
-        pb = 1.45 if pe < 22 else 3.10
-        div_yield = 1.15
-        sales_growth = 14.20
-        opm = 19.50
-        debt = 0.15 if "FIN" not in symbol else 0.00
-        current_ratio = 1.65
-        roe = 15.80
-        promoter = 52.40
+
+        # Fetch ratios with structured zero-fallbacks safely
+        pe = info.get("trailingPE") or info.get("forwardPE") or 0
+        peg = info.get("pegRatio") or 0
+        pb = info.get("priceToBook") or 0
+        div_yield = (info.get("dividendYield") or 0) * 100
+        sales_growth = (info.get("revenueGrowth") or info.get("earningsGrowth") or 0) * 100
+        opm = (info.get("operatingMargins") or 0) * 100
+        roe = (info.get("returnOnEquity") or 0) * 100
+        debt = (info.get("debtToEquity") or 0) / 100
+        current_ratio = info.get("currentRatio") or 0
+        promoter = (info.get("heldPercentInsiders") or 0) * 100
 
         metrics = [
-            {"id": 1, "name": "P/E Ratio", "val": f"{pe:.2f}", "status": "Pass" if 0 < pe < 30 else "Fail", "desc": "Ideal: < 30"},
-            {"id": 2, "name": "PEG Ratio", "val": f"{peg:.2f}", "status": "Pass" if 0 < peg < 1.0 else "Fail", "desc": "Ideal: < 1.0"},
-            {"id": 3, "name": "P/B Ratio", "val": f"{pb:.2f}", "status": "Pass" if pb < 2.0 else "Fail", "desc": "Ideal: < 2.0"},
-            {"id": 4, "name": "Dividend Yield", "val": f"{div_yield:.2f}%", "status": "Pass" if div_yield >= 0 else "Fail", "desc": "Ideal: 1% to 5%"},
-            {"id": 5, "name": "Sales Growth", "val": f"{sales_growth:.2f}%", "status": "Pass" if sales_growth >= 10 else "Fail", "desc": "Ideal: > 10%"},
-            {"id": 6, "name": "Operating Margin", "val": f"{opm:.2f}%", "status": "Pass" if opm >= 15 else "Fail", "desc": "Ideal: > 15%"},
-            {"id": 7, "name": "Debt-to-Equity", "val": f"{debt:.2f}", "status": "Pass" if debt < 0.5 else "Fail", "desc": "Ideal: < 0.5"},
-            {"id": 8, "name": "Current Ratio", "val": f"{current_ratio:.2f}", "status": "Pass" if current_ratio >= 1.5 else "Fail", "desc": "Ideal: > 1.5"},
-            {"id": 9, "name": "Return on Equity", "val": f"{roe:.2f}%", "status": "Pass" if roe >= 15 else "Fail", "desc": "Ideal: > 15%"},
-            {"id": 10, "name": "Promoter Holding", "val": f"{promoter:.2f}%", "status": "Pass" if promoter >= 50 or promoter == 0 else "Fail", "desc": "Ideal: > 50%"}
+            {"id": 1, "name": "P/E Ratio", "val": f"{pe:.2f}" if pe else "N/A", "status": "Pass" if 0 < pe < 30 else "Fail", "desc": "Ideal: < 30"},
+            {"id": 2, "name": "PEG Ratio", "val": f"{peg:.2f}" if peg else "N/A", "status": "Pass" if 0 < peg < 1.0 else "Fail", "desc": "Ideal: < 1.0"},
+            {"id": 3, "name": "P/B Ratio", "val": f"{pb:.2f}" if pb else "N/A", "status": "Pass" if pb < 2.0 else "Fail", "desc": "Ideal: < 2.0"},
+            {"id": 4, "name": "Dividend Yield", "val": f"{div_yield:.2f}%" if div_yield else "0.00%", "status": "Pass" if div_yield >= 0 else "Fail", "desc": "Ideal: 1% to 5%"},
+            {"id": 5, "name": "Sales Growth", "val": f"{sales_growth:.2f}%" if sales_growth else "N/A", "status": "Pass" if sales_growth >= 10 or sales_growth == 0 else "Fail", "desc": "Ideal: > 10%"},
+            {"id": 6, "name": "Operating Margin", "val": f"{opm:.2f}%" if opm else "N/A", "status": "Pass" if opm >= 15 or opm == 0 else "Fail", "desc": "Ideal: > 15%"},
+            {"id": 7, "name": "Debt-to-Equity", "val": f"{debt:.2f}" if debt else "0.00", "status": "Pass" if debt < 0.5 else "Fail", "desc": "Ideal: < 0.5"},
+            {"id": 8, "name": "Current Ratio", "val": f"{current_ratio:.2f}" if current_ratio else "N/A", "status": "Pass" if current_ratio >= 1.5 or current_ratio == 0 else "Fail", "desc": "Ideal: > 1.5"},
+            {"id": 9, "name": "Return on Equity", "val": f"{roe:.2f}%" if roe else "N/A", "status": "Pass" if roe >= 15 or roe == 0 else "Fail", "desc": "Ideal: > 15%"},
+            {"id": 10, "name": "Promoter Holding", "val": f"{promoter:.2f}%" if promoter else "N/A", "status": "Pass" if promoter >= 50 or promoter == 0 else "Fail", "desc": "Ideal: > 50%"}
         ]
         
         passed = sum(1 for m in metrics if m["status"] == "Pass")
         verdict, color = ("STRONG BUY", "#34d399") if passed >= 6 else ("HOLD", "#fbbf24") if passed >= 4 else ("AVOID", "#f87171")
         
         return {
-            "name": f"{symbol} India Stock",
+            "name": info.get("longName") or f"{symbol} Stock",
             "price": f"₹{current_price}",
             "verdict": verdict,
             "color": color,
             "score": f"{passed} / 10",
             "checklist": metrics
         }
-        
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Official Live API connection timeout. Try fresh symbol.")
+        raise HTTPException(status_code=500, detail="Data fetch timeout. Valid NSE ticker use karein.")
 
 @app.get("/", response_class=HTMLResponse)
 def frontend():
