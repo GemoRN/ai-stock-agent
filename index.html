@@ -120,17 +120,17 @@
             }
         }
 
-        function selectStock(symbol) {
-            document.getElementById('tickerInput').value = symbol;
-            document.getElementById('suggestionsBox').style.display = 'none';
-            analyzeStock();
-        }
-
         document.addEventListener('click', function(e) {
             if (e.target.id !== 'tickerInput') {
                 document.getElementById('suggestionsBox').style.display = 'none';
             }
         });
+
+        function selectStock(symbol) {
+            document.getElementById('tickerInput').value = symbol;
+            document.getElementById('suggestionsBox').style.display = 'none';
+            analyzeStock();
+        }
 
         async function analyzeStock() {
             const ticker = document.getElementById('tickerInput').value.trim();
