@@ -15,37 +15,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# FAKE BROWSER HEADER PROTOCOL - Taki Yahoo Finance server block na kare
+# REVOLUTIONARY HEADER PROTOCOL - Taki server block na ho
 custom_session = requests.Session()
 custom_session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 })
 
 @app.get("/api/evaluate")
 def evaluate_stock(ticker: str):
     if not ticker:
-        raise HTTPException(status_code=400, detail="Input is empty")
+        raise HTTPException(status_code=400, detail="Input field is empty")
         
     symbol = ticker.upper().strip().replace(" ", "")
     
+    # Handlers for specific group tickers
+    if symbol == "JIO" or symbol == "JIOFINANCIAL":
+        symbol = "JIOFIN" # Jio Financial Services stock symbol
+        
     if not (symbol.endswith(".NS") or symbol.endswith(".BO")):
         search_ticker = f"{symbol}.NS"
     else:
         search_ticker = symbol
         
     try:
-        # Custom session ke sath live data fetch karna
         stock = yf.Ticker(search_ticker, session=custom_session)
         info = stock.info
         
-        # Agar ticker galat hai toh history check karega real price ke liye
+        # Live Price Fetching (Strictly from History, No hardcoded dummy data)
         hist = stock.history(period="1d")
         if hist.empty:
-            raise HTTPException(status_code=404, detail="Stock Not Found on NSE")
+            raise HTTPException(status_code=404, detail=f"Symbol '{symbol}' NSE par valid nahi hai.")
             
         current_price = round(hist['Close'].iloc[-1], 2)
         
-        # Sabhi ratios ko safely fetch karna (koi dummy/mock data nahi)
+        # Real Market Metrics Extraction
         pe = info.get("trailingPE") or info.get("forwardPE") or 0
         peg = info.get("pegRatio") or 0
         pb = info.get("priceToBook") or 0
@@ -75,15 +78,15 @@ def evaluate_stock(ticker: str):
         
         return {
             "name": info.get("longName") or f"{symbol} Stock",
-            "price": f"₹{current_price}",
+            "price": f"₹{current_price:,}",
             "verdict": verdict,
             "color": color,
             "score": f"{passed} / 10",
             "checklist": metrics
         }
     except Exception as e:
-        # Agar sach mein koi network error ya invalid stock hoga tabhi error message aayega
-        raise HTTPException(status_code=500, detail="Stock not found or Market API throttling.")
+        # Koi jhootha data nahi, seedhe strict error dikhayega screen par
+        raise HTTPException(status_code=500, detail="Live Server Error! Ticker sahi se load nahi ho paya. Dobara koshish karein.")
 
 @app.get("/", response_class=HTMLResponse)
 def frontend():
