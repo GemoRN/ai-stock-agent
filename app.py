@@ -15,8 +15,8 @@ app.add_middleware(
 )
 
 # ALPHA VANTAGE FREE KEY (Yeh professional public access key hai)
-# Agar aap chahein toh unki site se apni personal free key le kar yahan badal sakte hain
-ALPHA_VANTAGE_KEY = "AAMFZP1TSEGBO6JS" 
+# Purani line ko hata kar yeh likhein (Yeh automatic Render ke secret box se key uthayega)
+ALPHA_VANTAGE_KEY = os.environ.get("ALPHA_VANTAGE_KEY", "demo")
 
 @app.get("/api/evaluate")
 async def evaluate_stock(ticker: str):
