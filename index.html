@@ -11,11 +11,23 @@
         header { text-align: center; padding-bottom: 16px; border-bottom: 1px solid #334155; margin-bottom: 24px; }
         h1 { color: #34d399; font-size: 24px; font-weight: 800; }
         .subtitle { color: #94a3b8; font-size: 11px; margin-top: 4px; letter-spacing: 0.5px; text-transform: uppercase; }
-        .search-box { display: flex; gap: 8px; margin-bottom: 24px; }
+        
+        /* Auto Suggestion Position Wrapper */
+        .search-area { position: relative; margin-bottom: 24px; }
+        .search-box { display: flex; gap: 8px; }
         input { flex: 1; padding: 14px 16px; background: #0f172a; border: 1px solid #475569; border-radius: 10px; color: #fff; font-size: 16px; font-weight: 600; outline: none; transition: 0.2s; text-transform: uppercase; }
         input:focus { border-color: #34d399; box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.2); }
         button { padding: 14px 24px; background: #34d399; border: none; border-radius: 10px; color: #0f172a; font-size: 16px; font-weight: 700; cursor: pointer; transition: 0.2s; }
         button:hover { background: #059669; }
+        
+        /* Floating Dropdown Suggestion Box styling like Screener */
+        .suggestions-list { position: absolute; top: 105%; left: 0; right: 88px; background: #1e293b; border: 1px solid #475569; border-radius: 10px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); z-index: 100; max-height: 200px; overflow-y: auto; display: none; }
+        .suggestion-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #334155; display: flex; flex-direction: column; }
+        .suggestion-item:last-child { border-bottom: none; }
+        .suggestion-item:hover { background: #334155; }
+        .s-symbol { font-weight: 800; color: #34d399; font-size: 14px; }
+        .s-name { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
         #loader { text-align: center; padding: 32px 0; color: #94a3b8; font-size: 14px; display: none; }
         .spinner { width: 36px; height: 36px; border: 3px solid #334155; border-top-color: #34d399; border-radius: 50%; margin: 0 auto 12px; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -34,7 +46,6 @@
         .bg-pass { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
         .bg-fail { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
         
-        /* Premium Custom Footer CSS */
         footer { margin-top: auto; padding-top: 16px; border-top: 1px solid #334155; text-align: center; }
         .footer-by { font-size: 12px; font-weight: 700; color: #34d399; letter-spacing: 0.5px; }
         .footer-desc { font-size: 10px; color: #64748b; margin-top: 4px; line-height: 1.4; font-style: italic; }
@@ -47,9 +58,13 @@
             <div class="subtitle">10-Point Live Fundamental Checker</div>
         </header>
 
-        <div class="search-box">
-            <input type="text" id="tickerInput" placeholder="Enter Ticker (e.g. YESBANK, RELIANCE, 360ONE)" onkeypress="if(event.key==='Enter') analyzeStock()">
-            <button onclick="analyzeStock()">Analyze</button>
+        <div class="search-area">
+            <div class="search-box">
+                <input type="text" id="tickerInput" placeholder="Enter Ticker (e.g. JIO, TCS, 360)" autocomplete="off" oninput="fetchSuggestions()" onkeypress="if(event.key==='Enter') analyzeStock()">
+                <button onclick="analyzeStock()">Analyze</button>
+            </div>
+            <!-- Screener Style Suggestions Dropdown Box -->
+            <div id="suggestionsBox" class="suggestions-list"></div>
         </div>
 
         <div id="loader">
@@ -68,18 +83,66 @@
             <div id="checklistGrid" class="grid"></div>
         </div>
 
-        <!-- Custom Developer Footer Warning Section -->
         <footer>
-            <div class="footer-by">Created by Rameshwar</div>
-            <div class="footer-desc">Just for educational purposes. Not for any financial advice or commercial trading regulations. Always research before investing.</div>
+            <div class="footer-by">Created by Rameshwar Pangare</div>
+            <div class="footer-desc">Just for educational purposes. Not for any financial advice. Always research before investing.</div>
         </footer>
     </div>
 
     <script>
+        // Real-time Dynamic Suggestions Fetcher
+        async function fetchSuggestions() {
+            const query = document.getElementById('tickerInput').value.trim();
+            const box = document.getElementById('suggestionsBox');
+            
+            if (query.length < 1) {
+                box.style.display = 'none';
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/suggest?q=' + encodeURIComponent(query));
+                const list = await res.json();
+                
+                if (list.length === 0) {
+                    box.style.display = 'none';
+                    return;
+                }
+                
+                box.innerHTML = "";
+                list.forEach(item => {
+                    box.innerHTML += `
+                        <div class="suggestion-item" onclick="selectStock('${item.symbol}')">
+                            <span class="s-symbol">${item.symbol}</span>
+                            <span class="s-name">${item.name}</span>
+                        </div>
+                    `;
+                });
+                box.style.display = 'block';
+            } catch(e) {
+                box.style.display = 'none';
+            }
+        }
+
+        // On selection click from suggestion box
+        function selectStock(symbol) {
+            document.getElementById('tickerInput').value = symbol;
+            document.getElementById('suggestionsBox').style.display = 'none';
+            analyzeStock();
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (e.target.id !== 'tickerInput') {
+                document.getElementById('suggestionsBox').style.display = 'none';
+            }
+        });
+
         async function analyzeStock() {
             const ticker = document.getElementById('tickerInput').value.trim();
             if(!ticker) return alert("Please enter a stock name!");
             
+            document.getElementById('suggestionsBox').style.display = 'none';
             document.getElementById('loader').style.display = 'block';
             document.getElementById('resultArea').style.display = 'none';
             
@@ -87,7 +150,7 @@
                 const res = await fetch('/api/evaluate?ticker=' + encodeURIComponent(ticker));
                 if(!res.ok) {
                     const errData = await res.json();
-                    throw new Error(errData.detail || "Stock not found or server throttling.");
+                    throw new Error(errData.detail || "Stock data process throttling.");
                 }
                 const data = await res.json();
                 
@@ -111,24 +174,3 @@
                     grid.innerHTML += `
                         <div class="row">
                             <div>
-                                <div class="m-name">` + item.name + `</div>
-                                <div class="m-desc">` + item.desc + `</div>
-                            </div>
-                            <div style="text-align: right;">
-                                <div class="m-val">` + item.val + `</div>
-                                <span class="` + badgeStyle + `">` + icon + " " + item.status + `</span>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                document.getElementById('resultArea').style.display = 'block';
-            } catch(err) {
-                alert(err.message || "API Connection Error!");
-            } finally {
-                document.getElementById('loader').style.display = 'none';
-            }
-        }
-    </script>
-</body>
-</html>
