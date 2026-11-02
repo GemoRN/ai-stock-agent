@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Stock Evaluator Agent</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: #0f172a; color: #f8fafc; min-height: 100vh; padding: 20px; display: flex; justify-content: center; align-items: flex-start; }
+        .container { max-width: 460px; width: 100%; background: #1e293b; padding: 24px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4); border: 1px solid #334155; margin-top: 20px; }
+        header { text-align: center; padding-bottom: 16px; border-bottom: 1px solid #334155; margin-bottom: 24px; }
+        h1 { color: #34d399; font-size: 24px; font-weight: 800; }
+        .subtitle { color: #94a3b8; font-size: 11px; margin-top: 4px; letter-spacing: 0.5px; text-transform: uppercase; }
+        .search-box { display: flex; gap: 8px; margin-bottom: 24px; }
+        input { flex: 1; padding: 14px 16px; background: #0f172a; border: 1px solid #475569; border-radius: 10px; color: #fff; font-size: 16px; font-weight: 600; outline: none; transition: 0.2s; text-transform: uppercase; }
+        input:focus { border-color: #34d399; box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.2); }
+        button { padding: 14px 24px; background: #34d399; border: none; border-radius: 10px; color: #0f172a; font-size: 16px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #059669; }
+        #loader { text-align: center; padding: 32px 0; color: #94a3b8; font-size: 14px; display: none; }
+        .spinner { width: 36px; height: 36px; border: 3px solid #334155; border-top-color: #34d399; border-radius: 50%; margin: 0 auto 12px; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #resultArea { display: none; }
+        .card { background: #1e293b; padding: 20px; border-radius: 12px; text-align: center; border: 2px solid #334155; margin-bottom: 24px; background-image: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
+        #stockName { font-size: 20px; font-weight: 700; color: #fff; }
+        #stockPrice { font-size: 32px; font-weight: 800; color: #f1f5f9; margin: 8px 0; }
+        #finalVerdict { margin-top: 10px; padding: 6px 16px; border-radius: 9999px; display: inline-block; font-size: 13px; font-weight: 800; letter-spacing: 0.5px; border: 1px solid transparent; }
+        .section-title { font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+        .grid { display: flex; flex-direction: column; gap: 10px; }
+        .row { background: #0f172a; padding: 14px; border-radius: 10px; border: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .m-name { font-weight: 700; font-size: 14px; color: #f1f5f9; }
+        .m-desc { font-size: 11px; color: #64748b; margin-top: 2px; }
+        .m-val { font-weight: 800; font-size: 15px; color: #f1f5f9; text-align: right; }
+        .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-top: 4px; text-transform: uppercase; }
+        .bg-pass { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .bg-fail { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 AI Stock Agent</h1>
+            <div class="subtitle">10-Point Live Fundamental Checker</div>
+        </header>
+
+        <div class="search-box">
+            <input type="text" id="tickerInput" placeholder="Enter Ticker (e.g. RELIANCE, TCS)" onkeypress="if(event.key==='Enter') analyzeStock()">
+            <button onclick="analyzeStock()">Analyze</button>
+        </div>
+
+        <div id="loader">
+            <div class="spinner"></div>
+            <div>Fetching live data...</div>
+        </div>
+
+        <div id="resultArea">
+            <div class="card">
+                <div id="stockName">---</div>
+                <div id="stockPrice">₹0.00</div>
+                <div id="finalVerdict">VERDICT</div>
+            </div>
+
+            <div class="section-title">Metric Breakdown</div>
+            <div id="checklistGrid" class="grid"></div>
+        </div>
+    </div>
+
+    <script>
+        async function analyzeStock() {
+            const ticker = document.getElementById('tickerInput').value.trim();
+            if(!ticker) return alert("Please enter a stock name!");
+            
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('resultArea').style.display = 'none';
+            
+            try {
+                const res = await fetch('/api/evaluate?ticker=' + encodeURIComponent(ticker));
+                if(!res.ok) throw new Error("Stock metadata missing or invalid symbol");
+                const data = await res.json();
+                
+                document.getElementById('stockName').innerText = data.name;
+                document.getElementById('stockPrice').innerText = data.price;
+                
+                const verdictElement = document.getElementById('finalVerdict');
+                verdictElement.innerText = data.verdict + " (" + data.score + ")";
+                verdictElement.style.backgroundColor = data.color + "15";
+                verdictElement.style.color = data.color;
+                verdictElement.style.borderColor = data.color;
+                
+                const grid = document.getElementById('checklistGrid');
+                grid.innerHTML = "";
+                
+                data.checklist.forEach(item => {
+                    const isPass = item.status === "Pass";
+                    const badgeStyle = isPass ? "badge bg-pass" : "badge bg-fail";
+                    const icon = isPass ? "✓" : "✗";
+                    
+                    grid.innerHTML += `
+                        <div class="row">
+                            <div>
+                                <div class="m-name">` + item.name + `</div>
+                                <div class="m-desc">` + item.desc + `</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div class="m-val">` + item.val + `</div>
+                                <span class="` + badgeStyle + `">` + icon + " " + item.status + `</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                document.getElementById('resultArea').style.display = 'block';
+            } catch(err) {
+                alert(err.message || "API Connection Error!");
+            } finally {
+                document.getElementById('loader').style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
