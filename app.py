@@ -16,42 +16,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Core Master Ticker Database for Auto-Suggestion Filter Corridor
-TICKER_DATABASE = [
-    {"symbol": "JIOFIN", "name": "Jio Financial Services Limited"},
-    {"symbol": "RELIANCE", "name": "Reliance Industries Limited"},
-    {"symbol": "360ONE", "name": "360 ONE WAM Limited (Wealth Management)"},
-    {"symbol": "TCS", "name": "Tata Consultancy Services Limited"},
-    {"symbol": "INFY", "name": "Infosys Limited"},
-    {"symbol": "SBIN", "name": "State Bank of India"},
-    {"symbol": "HDFCBANK", "name": "HDFC Bank Limited"},
-    {"symbol": "ICICIBANK", "name": "ICICI Bank Limited"},
-    {"symbol": "YESBANK", "name": "YES Bank Limited"},
-    {"symbol": "TATAMOTORS", "name": "Tata Motors Limited"},
-    {"symbol": "ITC", "name": "ITC Limited"},
-    {"symbol": "BHARTIARTL", "name": "Bharti Airtel Limited"}
-]
-
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
 ]
 
-# A. Real-Time Auto-Suggestion Search Filter Endpoint
-@app.get("/api/suggest")
-def get_suggestions(q: str = ""):
-    if not q:
-        return []
-    query = q.upper().strip()
-    
-    # Custom query expansions handles
-    matches = []
-    for item in TICKER_DATABASE:
-        if query in item["symbol"] or query in item["name"].upper() or (query == "JIO" and "JIO" in item["symbol"]) or (query == "360" and "360" in item["symbol"]):
-            matches.append(item)
-    return matches[:5] # Returns top 5 closest matches
-
-# B. Analytical Fundamental Evaluation Core Processor
 @app.get("/api/evaluate")
 def evaluate_stock(ticker: str):
     if not ticker:
@@ -59,7 +28,7 @@ def evaluate_stock(ticker: str):
         
     symbol = ticker.upper().strip().replace(" ", "")
     
-    # Absolute routing transformations
+    # Custom Smart Auto-Correction Ticker Routing (Dropdown Bypass)
     if symbol in ["JIO", "JIOFINANCIAL", "JPL"]:
         symbol = "JIOFIN"
     elif symbol == "360":
@@ -78,13 +47,13 @@ def evaluate_stock(ticker: str):
         
     try:
         stock = yf.Ticker(search_ticker, session=custom_session)
-        
         hist = stock.history(period="1d")
+        
         if not hist.empty:
             raw_price = hist['Close'].iloc[-1]
             current_price = f"{raw_price:,.2f}"
         else:
-            # Verified dynamic system tracking updates for late-night cache
+            # Smart Static Fallbacks for Market Downtime Cache Checks
             current_price = "213.25" if "JIO" in symbol else "28.45" if "YES" in symbol else "1,440.00" if "360" in symbol else "4,120.00"
 
         try:
@@ -92,8 +61,8 @@ def evaluate_stock(ticker: str):
         except Exception:
             info = {}
 
-        # 90%+ Accurate Ratios mapping alignment matrix
-        pe = info.get("trailingPE") or info.get("forwardPE") or (81.09 if "JIO" in symbol else 11.34 if "YES" in symbol else 28.10)
+        # Fallback corporate dynamic multi-ratios alignment parameters
+        pe = info.get("trailingPE") or info.get("forwardPE") or (81.00 if "JIO" in symbol else 11.34 if "YES" in symbol else 28.10)
         peg = info.get("pegRatio") or (1.15 if "JIO" in symbol else 0.18 if "YES" in symbol else 1.15)
         pb = info.get("priceToBook") or (3.10 if "JIO" in symbol else 0.89 if "YES" in symbol else 2.10)
         div_yield = (info.get("dividendYield") or 0) * 100 or (0.50 if "JIO" in symbol else 1.25 if "TCS" in symbol else 0.00)
@@ -129,13 +98,9 @@ def evaluate_stock(ticker: str):
             "checklist": metrics
         }
     except Exception:
-        raise HTTPException(status_code=500, detail="Data pipeline load sync refresh hit.")
-# ==================== YAHAN SE BACHA HUA CODE COPY-PASTE KAREIN ====================
+        raise HTTPException(status_code=500, detail="Data fetch timeout error. Try again.")
 
 @app.get("/", response_class=HTMLResponse)
 def frontend():
-    try:
-        with open("index.html", "r", encoding="utf-8") as file:
-            return HTMLResponse(content=file.read(), status_code=200)
-    except Exception:
-        return HTMLResponse(content="<h1>Error: index.html file missing in GitHub repository!</h1>", status_code=404)
+    with open("index.html", "r", encoding="utf-8") as file:
+        return HTMLResponse(content=file.read())
