@@ -130,3 +130,12 @@ def evaluate_stock(ticker: str):
         }
     except Exception:
         raise HTTPException(status_code=500, detail="Data pipeline load sync refresh hit.")
+# ==================== YAHAN SE BACHA HUA CODE COPY-PASTE KAREIN ====================
+
+@app.get("/", response_class=HTMLResponse)
+def frontend():
+    try:
+        with open("index.html", "r", encoding="utf-8") as file:
+            return HTMLResponse(content=file.read(), status_code=200)
+    except Exception:
+        return HTMLResponse(content="<h1>Error: index.html file missing in GitHub repository!</h1>", status_code=404)
